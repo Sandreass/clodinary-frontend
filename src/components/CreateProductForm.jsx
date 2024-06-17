@@ -3,18 +3,20 @@ import { useState } from "react";
 const CreateProductForm = () => {
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
-  console.log("Base URL: ", baseUrl);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    imageUrl: "",
+  });
   const [message, setMessage] = useState(null);
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
 
   const validateForm = () => {
     const newErrors = {};
-    if (!name) newErrors.name = "Name is required";
-    if (!description) newErrors.description = "Description is required";
-    if (!imageUrl) newErrors.image = "Image is required";
+    if (!formData.name) newErrors.name = "Name is required";
+    if (!formData.description) newErrors.description = "Description is required";
+    if (!formData.imageUrl) newErrors.imageUrl = "Image is required";
     return newErrors;
   };
 
@@ -31,16 +33,17 @@ const CreateProductForm = () => {
       return responseData;
     } catch (error) {
       console.log(error);
+      return { message: "An error occurred while creating the product." };
     }
   };
 
   const handleChange = (e) => {
     const { id, value, files } = e.target;
-
     if (id === "image") {
       handleImageChange(files[0], e);
     } else {
-      handleTextChange(id, value);
+      setFormData({ ...formData, [id]: value });
+      if (value) setErrors((prevErrors) => ({ ...prevErrors, [id]: null }));
     }
   };
 
@@ -50,73 +53,53 @@ const CreateProductForm = () => {
       (imageFile.type === "image/png" || imageFile.type === "image/jpeg") &&
       imageFile.size <= 5000000
     ) {
-      const readFile = new FileReader();
-      readFile.readAsDataURL(imageFile);
-      readFile.onloadend = () => {
-        setImageUrl(readFile.result);
-        setErrors((prevErrors) => ({ ...prevErrors, image: null }));
+      const reader = new FileReader();
+      reader.readAsDataURL(imageFile);
+      reader.onloadend = () => {
+        setFormData((prevData) => ({ ...prevData, imageUrl: reader.result }));
+        setErrors((prevErrors) => ({ ...prevErrors, imageUrl: null }));
       };
     } else {
       e.target.value = null;
-      setImageUrl("");
+      setFormData((prevData) => ({ ...prevData, imageUrl: "" }));
       setErrors((prevErrors) => ({
         ...prevErrors,
-        image: "Invalid file type or size",
+        imageUrl: "Invalid file type or size",
       }));
-    }
-  };
-
-  const handleTextChange = (id, value) => {
-    if (id === "name") {
-      setName(value);
-      if (value) setErrors((prevErrors) => ({ ...prevErrors, name: null }));
-    } else if (id === "description") {
-      setDescription(value);
-      if (value)
-        setErrors((prevErrors) => ({ ...prevErrors, description: null }));
     }
   };
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
+    setMessage(null);
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    const productData = {
-      name,
-      description,
-      image: imageUrl,
-    };
-    console.log("Form data: ", productData); // log the form data
-
-    const response = await createProducts(baseUrl, productData);
-
+    setIsLoading(true);
+    const response = await createProducts(baseUrl, formData);
     setMessage(response.message);
+    setIsLoading(false);
 
-    // Reset the image URL
-    setImageUrl("");
-
-    // Clear the form
-    e.target.reset();
-    setName("");
-    setDescription("");
-    setErrors({});
+    if (!response.message.includes("error")) {
+      setFormData({ name: "", description: "", imageUrl: "" });
+      e.target.reset();
+      setErrors({});
+    }
   };
 
   return (
-    <>
-      <>
-        <h1 className="mb-12 text-center text-3xl font-bold uppercase text-primary">
-          Add a Product
-        </h1>
-        {message && (
-          <p className="mt-3 text-xs font-bold text-green-500">{message}</p>
-        )}
-      </>
-
+    <div>
+      <h1 className="mb-12 text-center text-3xl font-bold uppercase text-primary">
+        Add a Product
+      </h1>
+      {message && (
+        <p className={`mt-3 text-xs font-bold ${message.includes("error") ? "text-red-500" : "text-green-500"}`}>
+          {message}
+        </p>
+      )}
       <form onSubmit={handleFormSubmit} className="m-x-auto w-full">
         <div className="flex flex-col gap-8 sm:flex-row lg:gap-16">
           <div className="lg:w-1/2">
@@ -129,14 +112,13 @@ const CreateProductForm = () => {
                 id="name"
                 className="input input-bordered w-full"
                 placeholder="Enter name"
-                value={name}
+                value={formData.name}
                 onChange={handleChange}
               />
               {errors.name && (
                 <p className="mt-1 text-xs text-red-500">{errors.name}</p>
               )}
             </div>
-
             <div className="form-control w-full">
               <label className="label" htmlFor="description">
                 <span className="label-text">Description</span>
@@ -146,12 +128,11 @@ const CreateProductForm = () => {
                 className="textarea textarea-bordered w-full resize-none"
                 placeholder="Enter description"
                 rows={3}
-                value={description}
-                onChange={handleChange}></textarea>
+                value={formData.description}
+                onChange={handleChange}
+              ></textarea>
               {errors.description && (
-                <p className="mt-1 text-xs text-red-500">
-                  {errors.description}
-                </p>
+                <p className="mt-1 text-xs text-red-500">{errors.description}</p>
               )}
             </div>
           </div>
@@ -167,25 +148,24 @@ const CreateProductForm = () => {
                 onChange={handleChange}
                 accept="image/png, image/jpg, image/jpeg, image/gif"
               />
-              {errors.image && (
-                <p className="mt-1 text-xs text-red-500">{errors.image}</p>
+              {errors.imageUrl && (
+                <p className="mt-1 text-xs text-red-500">{errors.imageUrl}</p>
               )}
             </div>
-            {imageUrl && (
+            {formData.imageUrl && (
               <img
-                src={imageUrl}
+                src={formData.imageUrl}
                 alt="Uploaded Preview"
                 className="mt-3 w-full max-w-xs"
               />
             )}
           </div>
         </div>
-
-        <button type="submit" className="btn btn-primary mt-3">
-          Submit
+        <button type="submit" className="btn btn-primary mt-3" disabled={isLoading}>
+          {isLoading ? "Submitting..." : "Submit"}
         </button>
       </form>
-    </>
+    </div>
   );
 };
 
