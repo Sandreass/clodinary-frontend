@@ -6,7 +6,7 @@ const themes = {
 };
 
 const ThemeToggler = () => {
-  const [theme, setTheme] = useState(themes.light);
+  const [theme, setTheme] = useState(themes.garden);
 
   const handleThemeToggle = () => {
    const newTheme = theme === themes.garden ? themes.dark : themes.garden;
@@ -15,7 +15,7 @@ const ThemeToggler = () => {
   };
 
   return <button onClick= {handleThemeToggle} className="btn btn-sm">
-  {theme}
+  {theme === themes.garden ? "🌙" : "🌞"}
   </button>;
 };
 export default ThemeToggler;
